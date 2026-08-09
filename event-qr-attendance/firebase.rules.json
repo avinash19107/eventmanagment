@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "events": {
+      ".read": true,
+      ".write": true,
+      "$eventId": {
+        ".validate": "newData.hasChildren(['id', 'title', 'category', 'startDate', 'venueName'])"
+      }
+    },
+    "users": {
+      ".read": true,
+      ".write": true,
+      "$userId": {
+        ".validate": "newData.hasChildren(['id', 'email', 'name', 'role'])"
+      }
+    },
+    "registrations": {
+      ".read": true,
+      ".write": true,
+      "$registrationId": {
+        ".validate": "newData.hasChildren(['eventId', 'attendeeEmail', 'reference'])"
+      }
+    },
+    "visitors": {
+      ".read": true,
+      ".write": true
+    },
+    "analytics": {
+      ".read": true,
+      ".write": true
+    },
+    "audit_logs": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
