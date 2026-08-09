@@ -1,0 +1,173 @@
+import emailjs from '@emailjs/browser';
+import { Event, NotificationRecord, Registration } from '../types';
+import { StorageRepository } from './storage';
+
+export class EmailService {
+  /**
+   * Send 6-Digit Registration Verification OTP via EmailJS
+   */
+  public static async sendOTPEmail(email: string, name: string, otpCode: string): Promise<NotificationRecord> {
+    const notifId = `notif-otp-${Date.now()}`;
+
+    // Read EmailJS credentials directly from environment variables
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID || '';
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '';
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || '';
+
+    // Calculate OTP expiry time (15 minutes from now)
+    const expiryTime = new Date(Date.now() + 15 * 60 * 1000);
+    const timeString = expiryTime.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    // Template variables matching EmailJS template: {{passcode}}, {{time}}, {{to_email}}
+    const templateParams = {
+      to_name: name,
+      to_email: email,
+      passcode: otpCode,
+      time: timeString,
+    };
+
+    if (!serviceId || !templateId || !publicKey) {
+      throw new Error(
+        `EmailJS is not configured. Please add your EmailJS credentials to .env:\n` +
+        `VITE_EMAILJS_SERVICE_ID=${serviceId || '(missing)'}\n` +
+        `VITE_EMAILJS_TEMPLATE_ID=${templateId || '(missing)'}\n` +
+        `VITE_EMAILJS_PUBLIC_KEY=${publicKey || '(missing)'}`
+      );
+    }
+
+    try {
+      const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
+
+      if (response.status !== 200) {
+        throw new Error(`EmailJS returned status ${response.status}: ${response.text}`);
+      }
+
+      const notifRecord: NotificationRecord = {
+        id: notifId,
+        recipientEmail: email,
+        recipientName: name,
+        eventId: 'system',
+        eventTitle: 'Account Verification OTP',
+        type: 'registration_receipt',
+        status: 'sent',
+        providerRef: `EMAILJS_${response.text || '200_OK'}`,
+        sentAt: new Date().toISOString(),
+        bodySnippet: `ApexEvents OTP Code: [ ${otpCode} ] sent to ${email}`,
+      };
+
+      StorageRepository.saveNotification(notifRecord);
+      return notifRecord;
+    } catch (err: any) {
+      const errorMsg = err?.text || err?.message || 'Unknown error';
+      throw new Error(`Failed to send OTP email to ${email}: ${errorMsg}`);
+    }
+  }
+
+  public static async sendRegistrationConfirmation(
+    registration: Registration,
+    event: Event,
+    qrDataUrl: string
+  ): Promise<NotificationRecord> {
+    const settings = StorageRepository.getEmailJSSettings();
+    const notifId = `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    const templateParams = {
+      to_name: registration.attendeeName,
+      to_email: registration.attendeeEmail,
+      event_title: event.title,
+      event_date: new Date(event.startDate).toLocaleString(),
+      event_venue: event.venueName,
+      registration_ref: registration.reference,
+      ticket_link: `${window.location.origin}/ticket/${registration.reference}`,
+      qr_code: qrDataUrl,
+    };
+
+    let status: 'sent' | 'failed' | 'queued' = 'queued';
+    let providerRef = 'SIMULATED_LOCAL';
+
+    if (settings.isConfigured && settings.serviceId && settings.templateId && settings.publicKey) {
+      try {
+        const response = await emailjs.send(
+          settings.serviceId,
+          settings.templateId,
+          templateParams,
+          settings.publicKey
+        );
+        status = response.status === 200 ? 'sent' : 'failed';
+        providerRef = `EMAILJS_${response.text || '200_OK'}`;
+      } catch (err) {
+        console.error('EmailJS Error:', err);
+        status = 'failed';
+        providerRef = 'EMAILJS_ERROR';
+      }
+    } else {
+      status = 'sent';
+      providerRef = 'SIMULATED_INSPECTOR';
+    }
+
+    const notifRecord: NotificationRecord = {
+      id: notifId,
+      recipientEmail: registration.attendeeEmail,
+      recipientName: registration.attendeeName,
+      eventId: event.id,
+      eventTitle: event.title,
+      type: 'registration_receipt',
+      status,
+      providerRef,
+      sentAt: new Date().toISOString(),
+      bodySnippet: `Dear ${registration.attendeeName}, your registration for ${event.title} is confirmed! Ticket Ref: ${registration.reference}`,
+    };
+
+    StorageRepository.saveNotification(notifRecord);
+    return notifRecord;
+  }
+
+  public static async sendPasswordResetEmail(email: string, resetLink: string): Promise<NotificationRecord> {
+    const settings = StorageRepository.getEmailJSSettings();
+    const notifId = `notif-reset-${Date.now()}`;
+
+    const templateParams = {
+      to_email: email,
+      reset_link: resetLink,
+      expires_in: '1 hour',
+    };
+
+    let status: 'sent' | 'failed' = 'sent';
+    let providerRef = 'SIMULATED_LOCAL';
+
+    if (settings.isConfigured && settings.serviceId && settings.templateId && settings.publicKey) {
+      try {
+        const response = await emailjs.send(
+          settings.serviceId,
+          settings.templateId,
+          templateParams,
+          settings.publicKey
+        );
+        status = response.status === 200 ? 'sent' : 'failed';
+        providerRef = `EMAILJS_${response.text || '200_OK'}`;
+      } catch {
+        status = 'failed';
+      }
+    }
+
+    const notifRecord: NotificationRecord = {
+      id: notifId,
+      recipientEmail: email,
+      recipientName: email.split('@')[0],
+      eventId: 'system',
+      eventTitle: 'System Account Recovery',
+      type: 'password_reset',
+      status,
+      providerRef,
+      sentAt: new Date().toISOString(),
+      bodySnippet: `Password reset requested for ${email}. Reset URL: ${resetLink}`,
+    };
+
+    StorageRepository.saveNotification(notifRecord);
+    return notifRecord;
+  }
+}
