@@ -1,0 +1,56 @@
+{
+  "rules": {
+    "events": {
+      ".read": true,
+      ".write": "auth != null",
+      "$eventId": {
+        ".validate": "newData.hasChildren(['id', 'title', 'category', 'startDate', 'venueName'])"
+      }
+    },
+
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['id', 'email', 'name', 'role'])"
+      }
+    },
+
+    "registrations": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$registrationId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['eventId', 'attendeeEmail', 'reference'])"
+      }
+    },
+
+    "winners": {
+      ".read": true,
+      "$eventId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+
+    "visitors": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null"
+    },
+
+    "analytics": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+    },
+
+    "audit_logs": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$logId": {
+        ".write": "auth != null && !data.exists()"
+      }
+    }
+  }
+}
+
+
