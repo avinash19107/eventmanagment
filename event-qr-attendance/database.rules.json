@@ -1,0 +1,88 @@
+{
+  "rules": {
+    "events": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["startDate", "status", "category", "organizationId"],
+      "$eventId": {
+        ".validate": "newData.hasChildren(['id', 'title', 'category', 'startDate', 'venueName'])"
+      }
+    },
+
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["email", "registrationNumber", "role", "status"],
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['id', 'email', 'name', 'role'])"
+      }
+    },
+
+    "registrations": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["eventId", "attendeeEmail", "reference", "registrationNumber", "status"],
+      "$registrationId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['eventId', 'attendeeEmail', 'reference'])"
+      }
+    },
+
+    "attendance": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["eventId", "registrationId", "attendeeEmail"]
+    },
+
+    "winners": {
+      ".read": true,
+      "$eventId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+
+    "visitors": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp", "page"]
+    },
+
+    "analytics": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".indexOn": ["eventId", "timestamp"]
+    },
+
+    "audit_logs": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'organizer' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".indexOn": ["entityId", "actorId", "action", "timestamp"],
+      "$logId": {
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+
+    "event_feedback": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["eventId", "userId", "timestamp"]
+    },
+
+    "platform_feedback": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["userId", "timestamp"]
+    },
+
+    "feedback": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "portalFeedback": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
